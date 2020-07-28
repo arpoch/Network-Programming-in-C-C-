@@ -24,7 +24,7 @@ struct Data_Packet
 {
     uint16_t code;
     uint16_t block;
-    char data[512]; //MODE is NETASCII as we have used char array
+    char data[512]; //MODE
 } DATA;
 struct Ack_Packet
 {
@@ -41,10 +41,8 @@ struct Error_Packet
 int main(int argc, char **argv)
 {
     //------------------------------------Definitions & Declarations----------------------------
-    char addrr_buff[16];
     uint16_t port = 0, dblock_n = 0;
-    int sock_fd = 0, bind_fd = 0;
-    std::string mode, filename;
+    int sock_fd = 0;
     struct sockaddr_in server_tftp, client_tftp;
     //-------------------------------------------------------------------------------------------
     bzero(&server_tftp, sizeof(server_tftp));
@@ -63,9 +61,9 @@ int main(int argc, char **argv)
     server_tftp.sin_addr.s_addr = htonl(INADDR_ANY);
     server_tftp.sin_port = htons(port);
     //---------------------------------Binding the Address Struct with Socket------------------
-    if ((bind_fd = bind(sock_fd, (SA *)&server_tftp, sizeof(server_tftp))) == -1)
+    if (bind(sock_fd, (SA *)&server_tftp, sizeof(server_tftp)) < 0)
     {
-        std::cout << "Error while Binding with socket id = " << bind_fd << '\n';
+        std::cout << "Error while Binding with socket id = " << -1 << '\n';
         exit(1);
     }
     //--------------------------------Listening for client with readfrom------------------------
@@ -81,9 +79,10 @@ int main(int argc, char **argv)
     }
     //--------------------------------Proccessing Requests---------------------------------------
     uint16_t hop_code = ntohs(REQ.code);
+    char addrr_buff[16];
     if (hop_code == 1)
     {
-        printf("Reading Data request from client address = %s : %u\n",
+        printf("Reading Request Packet from client at address = %s : %u\n",
                inet_ntop(AF_INET, &client_tftp.sin_addr.s_addr, addrr_buff, sizeof(addrr_buff)),
                ntohs(client_tftp.sin_port));
     }
@@ -94,6 +93,7 @@ int main(int argc, char **argv)
     }
     std::cout << "File requested by the client " << REQ.filename << "\nMode of transfer " << REQ.mode << '\n';
     //---------------------------------Opening File----------------------------------------------
+    std::string mode, filename;
     mode = REQ.mode;
     filename = REQ.filename;
     std::ifstream inFile;
@@ -111,14 +111,13 @@ int main(int argc, char **argv)
             slength = std::to_string(inFile.gcount());
             nlength = std::stol(slength);
             inFile.seekg(inFile.tellg());
-            //Preparing DATA Struct to send to client
+            //Preparing DATA Packet to send to client
             DATA.code = htons(3);
-            ++dblock_n;
-            DATA.block = htons(dblock_n);
-            if (nlength > 0)
+            DATA.block = htons(++dblock_n);
+            std::cout << "Number of bytes read  = " << nlength << '\n';
+            if (nlength >= 0)
                 memcpy((DATA.data), Reader_buff, nlength); //Error can occur due to conversion on unsigned long int into size_t
-            std::cout << "value in buffer = " << DATA.data;
-            //Sending DATA Struct
+            //Sending DATA Packet
             bytes_written = sendto(sock_fd, &DATA, (4 + nlength), 0,
                                    (struct sockaddr *)&client_tftp, addrlen);
             if (bytes_written < 0)
@@ -126,8 +125,7 @@ int main(int argc, char **argv)
                 std::cout << "Error while sending data to client\n";
                 //exit(1);
             }
-            std::cout << "Data Packett Send\n";
-            //---------------------------------Acknowledgement-------------------------------------------
+            std::cout << "Data Packect Send\n";
         }
     }
     return 0;
