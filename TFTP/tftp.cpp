@@ -40,6 +40,7 @@ struct Error_Packet
 
 int main(int argc, char **argv)
 {
+    std::cout << sizeof(OP_Code);
     //------------------------------------Definitions & Declarations----------------------------
     uint16_t port = 0, dblock_n = 0;
     int sock_fd = 0;
@@ -80,7 +81,7 @@ int main(int argc, char **argv)
     //--------------------------------Proccessing Requests---------------------------------------
     uint16_t hop_code = ntohs(REQ.code);
     char addrr_buff[16];
-    if (hop_code == 1)
+    if (hop_code == (uint16_t)OP_Code::RRQ)
     {
         printf("Reading Request Packet from client at address = %s : %u\n",
                inet_ntop(AF_INET, &client_tftp.sin_addr.s_addr, addrr_buff, sizeof(addrr_buff)),
