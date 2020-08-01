@@ -56,10 +56,25 @@ void ACK_send(int sock_fd, int dblock_n, struct sockaddr_in &client_tftp, const 
     if (ack_rev < 0)
     {
         std::cout << "Acknowledgement not send\n";
+        exit(1);
     }
     else
     {
         std::cout << "Acknowledgement of data packect " << ntohs(ACK.block) << " send\n";
+    }
+}
+//----------------------------Definition of ACK Recv-------------------------------------------
+void ACK_recv(int sock_fd)
+{
+    int ack_rev = 0;
+    ack_rev = recvfrom(sock_fd, &ACK, sizeof(ACK), 0, NULL, NULL);
+    if (ack_rev < 0)
+    {
+        std::cout << "Acknowledgement not recived\n";
+    }
+    else
+    {
+        std::cout << "Acknowledgement of data packect " << ntohs(ACK.block) << " recived\n";
     }
 }
 //---------------------------------------MAIN--------------------------------------------------
@@ -173,16 +188,8 @@ void Reading_rq(const int sock_fd, struct Request_Packet &REQ,
                 //exit(1);
             }
             std::cout << "Data Packect Send\n";
-            //Acknowledgement Packet
-            ack_rev = recvfrom(sock_fd, &ACK, sizeof(ACK), 0, NULL, NULL);
-            if (ack_rev < 0)
-            {
-                std::cout << "Acknowledgement not recived\n";
-            }
-            else
-            {
-                std::cout << "Acknowledgement of data packect " << ntohs(ACK.block) << " recived\n";
-            }
+            //Recive ACK
+            ACK_recv(sock_fd);
         }
     }
 }
@@ -199,7 +206,7 @@ void Write_rq(const int sock_fd, const struct Request_Packet &REQ,
     inFile.open(filename, std::ios::ate | std::ios::binary);
     //Data Transfering
     char Reader_buff[512];
-    int bytes_written = 516, dblock_n = 0;
+    int bytes_written = 516;
     while (bytes_written == 516)
     {
         if (mode == "octet")
@@ -220,5 +227,4 @@ void Write_rq(const int sock_fd, const struct Request_Packet &REQ,
             ACK_send(sock_fd, ntohs(DATA.block), client_tftp, addrlen);
         }
     }
-    //std::cout << "Bytes written = " << bytes_written << '\n';
 }
