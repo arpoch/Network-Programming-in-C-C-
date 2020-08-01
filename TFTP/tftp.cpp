@@ -38,40 +38,60 @@ struct Error_Packet
     std::string ErrMsg;
 } ERROR;
 
-//----------------------------Declaration of helper functions----------------------
-void Reading_rq(const int sock_fd, struct Request_Packet &REQ, uint16_t &dblock_n,
+//----------------------------Declaration of RRQ/WRQ-------------------------------------------
+void Reading_rq(const int sock_fd, struct Request_Packet &REQ,
                 struct sockaddr_in &client_tftp, const socklen_t addrlen);
 
+void Write_rq(const int sock_fd, const struct Request_Packet &REQ,
+              struct sockaddr_in &client_tftp, socklen_t addrlen);
+
+//----------------------------Definition of ACK Send-------------------------------------------
+void ACK_send(int sock_fd, int dblock_n, struct sockaddr_in &client_tftp, const socklen_t addrlen)
+{
+    int ack_rev = 0;
+    //Acknowledgement Packet
+    ACK.code = htons((uint16_t)OP_Code::ACK);
+    ACK.block = htons(dblock_n++);
+    ack_rev = sendto(sock_fd, &ACK, sizeof(ACK), 0, (SA *)&client_tftp, addrlen);
+    if (ack_rev < 0)
+    {
+        std::cout << "Acknowledgement not send\n";
+    }
+    else
+    {
+        std::cout << "Acknowledgement of data packect " << ntohs(ACK.block) << " send\n";
+    }
+}
 //---------------------------------------MAIN--------------------------------------------------
 int main(int argc, char **argv)
 {
-    //------------------------------------Definitions & Declarations----------------------------
-    uint16_t port = 0, dblock_n = 0;
+    //Definitions & Declarations
+    uint16_t port = 0;
     int sock_fd = 0;
     struct sockaddr_in server_tftp, client_tftp;
-    //-------------------------------------------------------------------------------------------
+    //Initializing
     bzero(&server_tftp, sizeof(server_tftp));
     bzero(&client_tftp, sizeof(client_tftp));
-    //-----------------------------------Creating Socket--------------------------------------
+    //Creating Socket
     sock_fd = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock_fd == -1)
     {
         std::cout << "Error while creating socket\n";
         exit(1);
     }
-    //----------------------------------Address Struct-----------------------------------------
+    //Address Struct
     sscanf(argv[1], "%hu", &port);
     //std::cout << sock_fd << '\n';
     server_tftp.sin_family = AF_INET;
     server_tftp.sin_addr.s_addr = htonl(INADDR_ANY);
     server_tftp.sin_port = htons(port);
-    //---------------------------------Binding the Address Struct with Socket------------------
+    //Binding the Address Struct with Socket
     if (bind(sock_fd, (SA *)&server_tftp, sizeof(server_tftp)) < 0)
     {
         std::cout << "Error while Binding with socket id = " << -1 << '\n';
         exit(1);
     }
-    //--------------------------------Listening for client with readfrom------------------------
+    //Listening for client with readfrom
     std::cout << "READFROM....\n";
     socklen_t addrlen = sizeof(client_tftp);
     int bytes_read = 0;
@@ -82,9 +102,9 @@ int main(int argc, char **argv)
         std::cout << "Error while reciving datagram\n";
         exit(1);
     }
-    //--------------------------------Proccessing Requests---------------------------------------
+    //Proccessing Requests
     uint16_t hop_code = ntohs(REQ.code);
-    //--------------------------------Read Request By Client-------------------------------------
+    //Read Request By Client
     if (hop_code == (uint16_t)OP_Code::RRQ)
     {
         char addrr_buff[16];
@@ -92,36 +112,40 @@ int main(int argc, char **argv)
                inet_ntop(AF_INET, &client_tftp.sin_addr.s_addr, addrr_buff, sizeof(addrr_buff)),
                ntohs(client_tftp.sin_port));
         //Sending Reading Packet
-        Reading_rq(sock_fd, REQ, dblock_n, client_tftp, addrlen);
+        Reading_rq(sock_fd, REQ, client_tftp, addrlen);
+    }
+    else if (hop_code == (uint16_t)OP_Code::WRQ)
+    {
+        char addrr_buff[16];
+        printf("Write Request Packet from client at address = %s : %u\n",
+               inet_ntop(AF_INET, &client_tftp.sin_addr.s_addr, addrr_buff, sizeof(addrr_buff)),
+               ntohs(client_tftp.sin_port));
+        //ACK Send
+        ACK_send(sock_fd, 0, client_tftp, addrlen);
+        //Sending Write Packet
+        Write_rq(sock_fd, REQ, client_tftp, addrlen);
     }
     else
     {
         printf("Undefined OPCODE \n");
         exit(1);
     }
-    if (hop_code == (uint16_t)OP_Code::WRQ)
-    {
-        char addrr_buff[16];
-        printf("Write Request Packet from client at address = %s : %u\n",
-               inet_ntop(AF_INET, &client_tftp.sin_addr.s_addr, addrr_buff, sizeof(addrr_buff)),
-               ntohs(client_tftp.sin_port));
-        //Sending Write Packet
-        Reading_rq(sock_fd, REQ, dblock_n, client_tftp, addrlen);
-    }
     return 0;
 }
+//------------------------------------END MAIN----------------------------------------------------
 
-void Reading_rq(const int sock_fd, struct Request_Packet &REQ, uint16_t &dblock_n,
+void Reading_rq(const int sock_fd, struct Request_Packet &REQ,
                 struct sockaddr_in &client_tftp, const socklen_t addrlen)
 {
     std::cout << "File requested by the client " << REQ.filename << "\nMode of transfer " << REQ.mode << '\n';
-    //---------------------------------Opening File----------------------------------------------
+    int dblock_n = 0;
+    //Opening File
     std::string mode, filename;
     mode = REQ.mode;
     filename = REQ.filename;
     std::ifstream inFile;
     inFile.open(filename, std::ios::binary);
-    //---------------------------------Data Transfering------------------------------------------
+    //Data Transfering
     std::string slength = "512";
     long int nlength = std::stol(slength);
     char Reader_buff[512];
@@ -161,4 +185,40 @@ void Reading_rq(const int sock_fd, struct Request_Packet &REQ, uint16_t &dblock_
             }
         }
     }
+}
+
+void Write_rq(const int sock_fd, const struct Request_Packet &REQ,
+              struct sockaddr_in &client_tftp, socklen_t addrlen)
+{
+    std::cout << "File requested by the client " << REQ.filename << "\nMode of transfer " << REQ.mode << '\n';
+    //Opening File
+    std::string mode, filename;
+    mode = REQ.mode;
+    filename = REQ.filename;
+    std::ofstream inFile;
+    inFile.open(filename, std::ios::ate | std::ios::binary);
+    //Data Transfering
+    char Reader_buff[512];
+    int bytes_written = 516, dblock_n = 0;
+    while (bytes_written == 516)
+    {
+        if (mode == "octet")
+        {
+            //Reciving DATA Packet
+            bytes_written = recvfrom(sock_fd, &DATA, sizeof(DATA), 0, (SA *)&client_tftp, &addrlen);
+            if (bytes_written < 0)
+            {
+                std::cout << "Error while reciving data to client\n";
+                //exit(1);
+            }
+            std::cout << "Data Packect Recived\n";
+            //Data from DATA packet
+            memcpy(Reader_buff, DATA.data, (bytes_written - 4));
+            //Writing Data in file
+            inFile.write(Reader_buff, (bytes_written - 4));
+            //Send ACK
+            ACK_send(sock_fd, ntohs(DATA.block), client_tftp, addrlen);
+        }
+    }
+    //std::cout << "Bytes written = " << bytes_written << '\n';
 }
