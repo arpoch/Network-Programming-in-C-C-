@@ -117,9 +117,9 @@ int main(int argc, char **argv)
         std::cout << "Error while reciving datagram\n";
         exit(1);
     }
-    //Proccessing Requests
+    //Proccessing Client PORT
     uint16_t hop_code = ntohs(REQ.code);
-    //Read Request By Client
+    //Request By Client
     if (hop_code == (uint16_t)OP_Code::RRQ)
     {
         char addrr_buff[16];
@@ -159,15 +159,21 @@ void Reading_rq(const int sock_fd, struct Request_Packet &REQ,
     mode = REQ.mode;
     filename = REQ.filename;
     std::ifstream inFile;
-    inFile.open(filename, std::ios::binary);
+    //Mode
+    if (mode == "octet")
+        inFile.open(filename, std::ios::binary);
+    else if (mode == "netascii")
+    {
+        inFile.open(filename);
+    }
     //Data Transfering
     std::string slength = "512";
     long int nlength = std::stol(slength);
     char Reader_buff[512];
-    int bytes_written = 0, ack_rev = 0;
-    while (nlength == 512)
+    if (mode == "octet")
     {
-        if (mode == "octet")
+        int bytes_written = 0, ack_rev = 0;
+        while (nlength == 512)
         {
             inFile.read(Reader_buff, nlength);
             slength = std::to_string(inFile.gcount());
@@ -180,6 +186,32 @@ void Reading_rq(const int sock_fd, struct Request_Packet &REQ,
             if (nlength >= 0)
                 memcpy((DATA.data), Reader_buff, nlength); //Error can occur due to conversion on unsigned long int into size_t
             //Sending DATA Packet
+            bytes_written = sendto(sock_fd, &DATA, (4 + nlength), 0,
+                                   (SA *)&client_tftp, addrlen);
+            if (bytes_written < 0)
+            {
+                std::cout << "Error while sending data to client\n";
+                //exit(1);
+            }
+            std::cout << "Data Packect Send\n";
+            //Recive ACK
+            ACK_recv(sock_fd);
+        }
+    }
+    else if (mode == "netascii")
+    {
+        int bytes_written = 512, ack_rev = 0;
+        while ((inFile.getline(Reader_buff, nlength, '\n')))
+        {
+            //inFile.get(Reader_buff, nlength);
+            slength = std::to_string(inFile.gcount());
+            nlength = std::stol(slength);
+            //Preparing DATA Packet to send to client
+            DATA.code = htons(3);
+            DATA.block = htons(++dblock_n);
+            std::cout << "Number of bytes read  = " << nlength << '\n';
+            if (nlength >= 0)
+                strcpy(DATA.data, Reader_buff);
             bytes_written = sendto(sock_fd, &DATA, (4 + nlength), 0,
                                    (SA *)&client_tftp, addrlen);
             if (bytes_written < 0)
