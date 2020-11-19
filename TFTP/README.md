@@ -1,7 +1,7 @@
 # TFTP Server
 
 # Introduction
-1. Trivial File Transfer Protocol (TFTP) is a very simple protocol used to transfer files. It is implemented in C++ programming language using Berkeley sockets on Linux Kernel.
+Trivial File Transfer Protocol (TFTP) is a very simple protocol used to transfer files. It is implemented in C++ programming language using Berkeley sockets on Linux Kernel.
 
 # Implementation
 
