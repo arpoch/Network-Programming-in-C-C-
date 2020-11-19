@@ -92,7 +92,7 @@ int main(int argc, char **argv)
         exit(1);
     }
     //Listening for client with readfrom
-    std::cout << "READFROM....\n";
+    std::cout << "Listening for client....\n";
     socklen_t addrlen = sizeof(client_tftp);
     int bytes_read = 0;
     bytes_read = recvfrom(sock_fd, &REQ, sizeof(REQ), 0, (SA *)&client_tftp, &addrlen);
