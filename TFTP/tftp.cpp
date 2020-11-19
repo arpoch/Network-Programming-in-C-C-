@@ -5,6 +5,8 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <string.h>
+#include <cassert>
+
 #define SA struct sockaddr
 enum class OP_Code
 {
@@ -48,34 +50,21 @@ void Write_rq(const int sock_fd, const struct Request_Packet &REQ,
 //----------------------------Definition of ACK Send-------------------------------------------
 void ACK_send(int sock_fd, int dblock_n, struct sockaddr_in &client_tftp, const socklen_t addrlen)
 {
-    int ack_rev = 0;
+    int ack_send = 0;
     //Acknowledgement Packet
     ACK.code = htons((uint16_t)OP_Code::ACK);
     ACK.block = htons(dblock_n++);
-    ack_rev = sendto(sock_fd, &ACK, sizeof(ACK), 0, (SA *)&client_tftp, addrlen);
-    if (ack_rev < 0)
-    {
-        std::cout << "Acknowledgement not send\n";
-        exit(1);
-    }
-    else
-    {
-        std::cout << "Acknowledgement of data packect " << ntohs(ACK.block) << " send\n";
-    }
+    ack_send = sendto(sock_fd, &ACK, sizeof(ACK), 0, (SA *)&client_tftp, addrlen);
+    assert((ack_send < 0, "Acknowledgement not send"));
+    std::cout << "Acknowledgement of data packect " << ntohs(ACK.block) << " send\n";
 }
 //----------------------------Definition of ACK Recv-------------------------------------------
 void ACK_recv(int sock_fd)
 {
     int ack_rev = 0;
     ack_rev = recvfrom(sock_fd, &ACK, sizeof(ACK), 0, NULL, NULL);
-    if (ack_rev < 0)
-    {
-        std::cout << "Acknowledgement not recived\n";
-    }
-    else
-    {
-        std::cout << "Acknowledgement of data packect " << ntohs(ACK.block) << " recived\n";
-    }
+    assert((ack_rev < 0, "Acknowledgement not recived"));
+    std::cout << "Acknowledgement of data packect " << ntohs(ACK.block) << " recived\n";
 }
 //---------------------------------------MAIN--------------------------------------------------
 int main(int argc, char **argv)
@@ -89,11 +78,7 @@ int main(int argc, char **argv)
     bzero(&client_tftp, sizeof(client_tftp));
     //Creating Socket
     sock_fd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (sock_fd == -1)
-    {
-        std::cout << "Error while creating socket\n";
-        exit(1);
-    }
+    assert((sock_fd == -1, "Error while creating socket"));
     //Address Struct
     sscanf(argv[1], "%hu", &port);
     //std::cout << sock_fd << '\n';
@@ -112,11 +97,7 @@ int main(int argc, char **argv)
     int bytes_read = 0;
     bytes_read = recvfrom(sock_fd, &REQ, sizeof(REQ), 0, (SA *)&client_tftp, &addrlen);
     //Reciving Client Data, it should read min 4 bytes of data
-    if (bytes_read < 0)
-    {
-        std::cout << "Error while reciving datagram\n";
-        exit(1);
-    }
+    assert((bytes_read == -1, "Error while reciving datagram"));
     //Proccessing Client PORT
     uint16_t hop_code = ntohs(REQ.code);
     //Request By Client
@@ -188,11 +169,7 @@ void Reading_rq(const int sock_fd, struct Request_Packet &REQ,
             //Sending DATA Packet
             bytes_written = sendto(sock_fd, &DATA, (4 + nlength), 0,
                                    (SA *)&client_tftp, addrlen);
-            if (bytes_written < 0)
-            {
-                std::cout << "Error while sending data to client\n";
-                //exit(1);
-            }
+            assert((bytes_written < 0, "Error while sending data to client"));
             std::cout << "Data Packect Send\n";
             //Recive ACK
             ACK_recv(sock_fd);
@@ -214,11 +191,7 @@ void Reading_rq(const int sock_fd, struct Request_Packet &REQ,
                 strcpy(DATA.data, Reader_buff);
             bytes_written = sendto(sock_fd, &DATA, (4 + nlength), 0,
                                    (SA *)&client_tftp, addrlen);
-            if (bytes_written < 0)
-            {
-                std::cout << "Error while sending data to client\n";
-                //exit(1);
-            }
+            assert((bytes_written < 0, "Error while sending data to client"));
             std::cout << "Data Packect Send\n";
             //Recive ACK
             ACK_recv(sock_fd);
@@ -245,11 +218,7 @@ void Write_rq(const int sock_fd, const struct Request_Packet &REQ,
         {
             //Reciving DATA Packet
             bytes_written = recvfrom(sock_fd, &DATA, sizeof(DATA), 0, (SA *)&client_tftp, &addrlen);
-            if (bytes_written < 0)
-            {
-                std::cout << "Error while reciving data to client\n";
-                //exit(1);
-            }
+            assert((bytes_written < 0, "Error while reciving data to client"));
             std::cout << "Data Packect Recived\n";
             //Data from DATA packet
             memcpy(Reader_buff, DATA.data, (bytes_written - 4));
